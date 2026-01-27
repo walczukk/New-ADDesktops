@@ -18,3 +18,13 @@ Skrypt jest przygotowany jako szablon. Przed uruchomieniem na produkcji **należ
 * **Ścieżka OU:**
   ```powershell
   $OU = "OU=Computers,DC=domain,DC=pl"
+* **Grupy zabezpieczeń:**
+  ```powershell
+  $Groups = @("gg-desktop","ug-DisablePowerShell")
+* **Domena DNS:**
+  ```powershell
+  $DNSHostName = "$NewComputer.domain.pl"
+
+Skrypt posiada blok Try/Catch. Jeśli wystąpi błąd (np. komputer o takiej nazwie już istnieje), informacja zostanie wyświetlona na czerwono w konsoli oraz zapisana w pliku logu, a skrypt przejdzie do kolejnego numeru.
+
+Autor: *Kacper Walczuk **(@walczukk)***
