@@ -1,51 +1,74 @@
-﻿<#Skrypt przygotowany przez: Kacper Walczuk
-Skrypt dodaje do AD nowe komputery, ilość można zdefiniować w pętli for zmiennej $NewNumber
-Laptopy zostają również dodane do odpowiednich grup
-Uruchamiać skrypt z poziomu administratora domenowego#>
+<#
+.SYNOPSIS
+Dodaje nowe komputery do Active Directory
+
+.DESCRIPTION
+Skrypt pobiera ostatni numer komputera z danym prefiksem, następnie na podstawie zdefiniowanej
+liczby, generuje ilość nowych kont komputerów w AD oraz dodaje je do wskazanych grup.
+
+.EXAMPLE
+.\New-ADDesktops_v1.1.ps1 -ComputerPrefix "PC" -Count 10
+
+.NOTES
+    Wersja: 1.1
+    Autor: Kacper Walczuk
+    Data publikacji: 2026-03-25
+
+    ZASTRZEŻENIE
+    Skrypt wprowadza zmiany w Active Directory. Mimo że został napisany z dbałością o błędy,
+    używasz ich na własną odpowiedzialność! Przetestuj dokładnie jego działanie na środowisku
+    testowym przed uruchomieniem go na produkcji :) 
+#>
+[CmdletBinding()]
+param (
+    [string]$ComputerPrefix = "PC",
+    [string]$DomainSuffix = "domain.pl",
+    [string]$TargetOU = "OU=Computers,DC=domain,DC=pl",
+    [string[]]$TargetGroups = @("gg-desktop","ug-DisablePowerShell"),
+    [string]$LogPath = "C:\scripts\New-ADDesktops\logs\",
+    [int]$Count = 10
+)
 Import-Module ActiveDirectory
 
-$ComputerList = Get-ADComputer -Filter 'Name -like "xxxxDT*"' | Sort-Object {[int]($_.Name -replace 'xxxxDT', '')} | Select -ExpandProperty Name -Last 1
-$StartNumber = [int]($ComputerList -replace 'xxxxDT', '')
-$DateFormat = Get-Date -Format 'yyyy_MM_dd'
+$LastComputer = Get-ADComputer -Filter "Name -like '$ComputerPrefix*'" | Sort-Object {[int]($_.Name -replace "$ComputerPrefix", '')} | Select -ExpandProperty Name -Last 1
+$StartNumber = [int]($LastComputer -replace $ComputerPrefix, '')
+$DateFormat = Get-Date -Format "yyyy-MM-dd"
+$LogFile = Join-Path -Path $LogPath -ChildPath "DT_Import_$DateFormat.log"
 
-$LogPath = "C:\scripts\New-ADDesktops\logs\DT_Import_$DateFormat.log"
-
-$NewNumber = 
-for ($i = 1; $i -lt 101; $i++) {
-    $StartNumber + $i
+if (-not (Test-Path -Path $LogPath)) {
+    mkdir $LogPath
 }
+ 
+for ($i = 1; $i -le $Count; $i++) {
+    $NewNumber = $StartNumber + $i
+    $NewComputer = "$ComputerPrefix$NewNumber"
 
-foreach ($num in $NewNumber) {
-    $NewComputer = "xxxxDT$num"
-    Write-Host "Dodaję $NewComputer..."
+    Write-Verbose "Przetwarzanie komputera: $NewComputer"
 
-    Try {
-        $OU = "OU=Computers,DC=domain,DC=pl"
-        $Groups = @("gg-desktop","ug-DisablePowerShell")
-        $DNSHostName = "$NewComputer.domain.pl"
+    try {
+        $DNSHostName = "$NewComputer.$DomainSuffix"
         $SAMAccountName = "$NewComputer$"
         Start-Sleep -Milliseconds 300
 
         New-ADComputer -Name $NewComputer `
                        -SAMAccountName $SAMAccountName `
                        -DNSHostName $DNSHostName `
-                       -Path $OU `
+                       -Path $TargetOU `
                        -Enabled $true `
                        #-WhatIf
-        Write-Host "Dodałem $NewComputer" -ForegroundColor Green
-        "$($DateFormat): Dodano $NewComputer" | Out-File -FilePath $LogPath -Append
+        Write-Verbose "Dodałem $NewComputer" -Verbose
+        "$((Get-Date -Format "yyyy-MM-dd HH:mm:ss")): Dodano $NewComputer" | Out-File -FilePath $LogFile -Append
 
         Start-Sleep -Seconds 1
 
-        foreach ($group in $Groups) {
+        foreach ($group in $TargetGroups) {
             Add-ADGroupMember -Identity $group -Members $SAMAccountName #-WhatIf
-            Write-Host "Dodałem $NewComputer do grupy: $group" -BackgroundColor Cyan
-            "$($DateFormat): Dodano $NewComputer do grupy: $group" | Out-File -FilePath $LogPath -Append
+            Write-Verbose "Dodałem $NewComputer do grupy: $group" -Verbose
+            "$((Get-Date -Format "yyyy-MM-dd HH:mm:ss")): Dodano $NewComputer do grupy: $group" | Out-File -FilePath $LogFile -Append
         }
     }
-    Catch {
-        $ErrorMessage = $_.Exception.Message
-        Write-Host "BŁĄD przy $NewComputer - $ErrorMessage" -BackgroundColor Red
-        "$($DateFormat): BŁĄD przy $NewComputer - $ErrorMessage" | Out-File -FilePath $LogPath -Append
+    catch {
+        Write-Error "BŁĄD przy $NewComputer - $_"
+        "$((Get-Date -Format "yyyy-MM-dd HH:mm:ss")): BŁĄD przy $NewComputer - $_" | Out-File -FilePath $LogFile -Append
     }
 }
