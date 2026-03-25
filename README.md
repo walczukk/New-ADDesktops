@@ -35,5 +35,9 @@ Wywołaj skrypt z odpowiednimi parametrami z poziomu konsoli.
 ```powershell
 .\New-ADDesktops.ps1 -ComputerPrefix "IT-PC" -Count 5 -Verbose
 ```
+**Zastrzeżenie!**
+*Skrypt wprowadza zmiany w Active Directory. Mimo że został napisany z dbałością o błędy,
+używasz ich na własną odpowiedzialność! Przetestuj dokładnie jego działanie na środowisku 
+testowym przed uruchomieniem go na produkcji :)*
 
 Autor: *Kacper Walczuk **(@walczukk)***
